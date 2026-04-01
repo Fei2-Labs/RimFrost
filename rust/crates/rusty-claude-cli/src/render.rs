@@ -15,12 +15,17 @@ use syntect::util::{as_24_bit_terminal_escaped, LinesWithEndings};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ColorTheme {
+    enabled: bool,
     heading: Color,
     emphasis: Color,
     strong: Color,
     inline_code: Color,
     link: Color,
     quote: Color,
+    info: Color,
+    warning: Color,
+    success: Color,
+    error: Color,
     spinner_active: Color,
     spinner_done: Color,
     spinner_failed: Color,
@@ -29,16 +34,36 @@ pub struct ColorTheme {
 impl Default for ColorTheme {
     fn default() -> Self {
         Self {
-            heading: Color::Cyan,
-            emphasis: Color::Magenta,
+            enabled: true,
+            heading: Color::Blue,
+            emphasis: Color::Blue,
             strong: Color::Yellow,
             inline_code: Color::Green,
             link: Color::Blue,
             quote: Color::DarkGrey,
+            info: Color::Blue,
+            warning: Color::Yellow,
+            success: Color::Green,
+            error: Color::Red,
             spinner_active: Color::Blue,
             spinner_done: Color::Green,
             spinner_failed: Color::Red,
         }
+    }
+}
+
+impl ColorTheme {
+    #[must_use]
+    pub fn without_color() -> Self {
+        Self {
+            enabled: false,
+            ..Self::default()
+        }
+    }
+
+    #[must_use]
+    pub fn enabled(&self) -> bool {
+        self.enabled
     }
 }
 
@@ -67,12 +92,19 @@ impl Spinner {
             out,
             SavePosition,
             MoveToColumn(0),
-            Clear(ClearType::CurrentLine),
-            SetForegroundColor(theme.spinner_active),
-            Print(format!("{frame} {label}")),
-            ResetColor,
-            RestorePosition
+            Clear(ClearType::CurrentLine)
         )?;
+        if theme.enabled() {
+            queue!(
+                out,
+                SetForegroundColor(theme.spinner_active),
+                Print(format!("{frame} {label}")),
+                ResetColor,
+                RestorePosition
+            )?;
+        } else {
+            queue!(out, Print(format!("{frame} {label}")), RestorePosition)?;
+        }
         out.flush()
     }
 
@@ -83,14 +115,17 @@ impl Spinner {
         out: &mut impl Write,
     ) -> io::Result<()> {
         self.frame_index = 0;
-        execute!(
-            out,
-            MoveToColumn(0),
-            Clear(ClearType::CurrentLine),
-            SetForegroundColor(theme.spinner_done),
-            Print(format!("✔ {label}\n")),
-            ResetColor
-        )?;
+        execute!(out, MoveToColumn(0), Clear(ClearType::CurrentLine))?;
+        if theme.enabled() {
+            execute!(
+                out,
+                SetForegroundColor(theme.spinner_done),
+                Print(format!("✔ {label}\n")),
+                ResetColor
+            )?;
+        } else {
+            execute!(out, Print(format!("✔ {label}\n")))?;
+        }
         out.flush()
     }
 
@@ -101,14 +136,17 @@ impl Spinner {
         out: &mut impl Write,
     ) -> io::Result<()> {
         self.frame_index = 0;
-        execute!(
-            out,
-            MoveToColumn(0),
-            Clear(ClearType::CurrentLine),
-            SetForegroundColor(theme.spinner_failed),
-            Print(format!("✘ {label}\n")),
-            ResetColor
-        )?;
+        execute!(out, MoveToColumn(0), Clear(ClearType::CurrentLine))?;
+        if theme.enabled() {
+            execute!(
+                out,
+                SetForegroundColor(theme.spinner_failed),
+                Print(format!("✘ {label}\n")),
+                ResetColor
+            )?;
+        } else {
+            execute!(out, Print(format!("✘ {label}\n")))?;
+        }
         out.flush()
     }
 }
@@ -123,6 +161,9 @@ struct RenderState {
 
 impl RenderState {
     fn style_text(&self, text: &str, theme: &ColorTheme) -> String {
+        if !theme.enabled() {
+            return text.to_string();
+        }
         if self.strong > 0 {
             format!("{}", text.bold().with(theme.strong))
         } else if self.emphasis > 0 {
@@ -164,8 +205,67 @@ impl TerminalRenderer {
     }
 
     #[must_use]
+    pub fn with_color(enabled: bool) -> Self {
+        if enabled {
+            Self::new()
+        } else {
+            Self {
+                color_theme: ColorTheme::without_color(),
+                ..Self::default()
+            }
+        }
+    }
+
+    #[must_use]
     pub fn color_theme(&self) -> &ColorTheme {
         &self.color_theme
+    }
+
+    fn paint(&self, text: impl AsRef<str>, color: Color) -> String {
+        let text = text.as_ref();
+        if self.color_theme.enabled() {
+            format!("{}", text.with(color))
+        } else {
+            text.to_string()
+        }
+    }
+
+    fn paint_bold(&self, text: impl AsRef<str>, color: Color) -> String {
+        let text = text.as_ref();
+        if self.color_theme.enabled() {
+            format!("{}", text.bold().with(color))
+        } else {
+            text.to_string()
+        }
+    }
+
+    fn paint_underlined(&self, text: impl AsRef<str>, color: Color) -> String {
+        let text = text.as_ref();
+        if self.color_theme.enabled() {
+            format!("{}", text.underlined().with(color))
+        } else {
+            text.to_string()
+        }
+    }
+
+    #[must_use]
+    pub fn info(&self, text: impl AsRef<str>) -> String {
+        self.paint(text, self.color_theme.info)
+    }
+
+    #[must_use]
+    pub fn warning(&self, text: impl AsRef<str>) -> String {
+        self.paint(text, self.color_theme.warning)
+    }
+
+    #[must_use]
+    pub fn success(&self, text: impl AsRef<str>) -> String {
+        self.paint(text, self.color_theme.success)
+    }
+
+    #[must_use]
+    pub fn error(&self, text: impl AsRef<str>) -> String {
+        self.paint(text, self.color_theme.error)
     }
 
     #[must_use]
@@ -235,7 +335,7 @@ impl TerminalRenderer {
                 let _ = write!(
                     output,
                     "{}",
-                    format!("`{code}`").with(self.color_theme.inline_code)
+                    self.paint(format!("`{code}`"), self.color_theme.inline_code)
                 );
             }
             Event::Rule => output.push_str("---\n"),
@@ -252,16 +352,14 @@ impl TerminalRenderer {
                 let _ = write!(
                     output,
                     "{}",
-                    format!("[{dest_url}]")
-                        .underlined()
-                        .with(self.color_theme.link)
+                    self.paint_underlined(format!("[{dest_url}]"), self.color_theme.link)
                 );
             }
             Event::Start(Tag::Image { dest_url, .. }) => {
                 let _ = write!(
                     output,
                     "{}",
-                    format!("[image:{dest_url}]").with(self.color_theme.link)
+                    self.paint(format!("[image:{dest_url}]"), self.color_theme.link)
                 );
             }
             Event::Start(
@@ -294,12 +392,16 @@ impl TerminalRenderer {
             3 => "### ",
             _ => "#### ",
         };
-        let _ = write!(output, "{}", prefix.bold().with(self.color_theme.heading));
+        let _ = write!(
+            output,
+            "{}",
+            self.paint_bold(prefix, self.color_theme.heading)
+        );
     }
 
     fn start_quote(&self, state: &mut RenderState, output: &mut String) {
         state.quote += 1;
-        let _ = write!(output, "{}", "│ ".with(self.color_theme.quote));
+        let _ = write!(output, "{}", self.paint("│ ", self.color_theme.quote));
     }
 
     fn start_item(state: &RenderState, output: &mut String) {
@@ -312,7 +414,7 @@ impl TerminalRenderer {
             let _ = writeln!(
                 output,
                 "{}",
-                format!("╭─ {code_language}").with(self.color_theme.heading)
+                self.paint(format!("╭─ {code_language}"), self.color_theme.heading)
             );
         }
     }
@@ -320,7 +422,7 @@ impl TerminalRenderer {
     fn finish_code_block(&self, code_buffer: &str, code_language: &str, output: &mut String) {
         output.push_str(&self.highlight_code(code_buffer, code_language));
         if !code_language.is_empty() {
-            let _ = write!(output, "{}", "╰─".with(self.color_theme.heading));
+            let _ = write!(output, "{}", self.paint("╰─", self.color_theme.heading));
         }
         output.push_str("\n\n");
     }
@@ -342,6 +444,10 @@ impl TerminalRenderer {
 
     #[must_use]
     pub fn highlight_code(&self, code: &str, language: &str) -> String {
+        if !self.color_theme.enabled() {
+            return code.to_string();
+        }
+
         let syntax = self
             .syntax_set
             .find_syntax_by_token(language)
@@ -369,6 +475,16 @@ impl TerminalRenderer {
             thread::sleep(Duration::from_millis(8));
         }
         writeln!(out)
+    }
+
+    #[must_use]
+    pub fn token_usage_summary(&self, input_tokens: u64, output_tokens: u64) -> String {
+        format!(
+            "{} {} input / {} output",
+            self.info("Token usage:"),
+            input_tokens,
+            output_tokens
+        )
     }
 }
 
@@ -436,5 +552,26 @@ mod tests {
 
         let output = String::from_utf8_lossy(&out);
         assert!(output.contains("Working"));
+    }
+
+    #[test]
+    fn renderer_can_disable_color_output() {
+        let terminal_renderer = TerminalRenderer::with_color(false);
+        let markdown_output = terminal_renderer.render_markdown(
+            "# Heading\n\nThis is **bold** and `code`.\n\n```rust\nfn hi() {}\n```",
+        );
+
+        assert!(!markdown_output.contains('\u{1b}'));
+        assert!(markdown_output.contains("Heading"));
+        assert!(markdown_output.contains("fn hi() {}"));
+    }
+
+    #[test]
+    fn token_usage_summary_uses_plain_text_without_color() {
+        let terminal_renderer = TerminalRenderer::with_color(false);
+        assert_eq!(
+            terminal_renderer.token_usage_summary(12, 34),
+            "Token usage: 12 input / 34 output"
+        );
     }
 }
