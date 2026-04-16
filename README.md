@@ -1,17 +1,15 @@
-# RimFrost
+<h1 align="center">⛰ RimFrost</h1>
 
 <p align="center">
-  <a href="https://github.com/Fei2-Labs/rimfrost">Fei2-Labs/rimfrost</a>
-  ·
-  <a href="./USAGE.md">Usage</a>
-  ·
-  <a href="./rust/README.md">Rust workspace</a>
-  ·
-  <a href="./PARITY.md">Parity</a>
-  ·
-  <a href="./ROADMAP.md">Roadmap</a>
-  ·
-  <a href="https://discord.gg/5TUQKqFWd">Fei2-Labs Discord</a>
+  A self-evolving CLI agent that gets smarter the more you use it.
+</p>
+
+<p align="center">
+  <a href="#-quick-start">Quick Start</a> ·
+  <a href="#-core-capabilities">Capabilities</a> ·
+  <a href="#-cli-reference">CLI Reference</a> ·
+  <a href="./USAGE.md">Full Usage Guide</a> ·
+  <a href="./PHILOSOPHY.md">Philosophy</a>
 </p>
 
 <p align="center">
@@ -19,115 +17,220 @@
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Fei2-Labs/rimfrost&type=Date&theme=dark" />
       <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=Fei2-Labs/rimfrost&type=Date" />
-      <img alt="Star history for Fei2-Labs/rimfrost" src="https://api.star-history.com/svg?repos=Fei2-Labs/rimfrost&type=Date" width="600" />
+      <img alt="Star History" src="https://api.star-history.com/svg?repos=Fei2-Labs/rimfrost&type=Date" width="600" />
     </picture>
   </a>
 </p>
 
-<p align="center">
-  <img src="assets/rimfrost-hero.jpeg" alt="RimFrost" width="300" />
-</p>
+---
 
-RimFrost is the public Rust implementation of the `rimfrost` CLI agent harness.
-The canonical implementation lives in [`rust/`](./rust), and the current source of truth for this repository is **Fei2-Labs/rimfrost**.
+## What is RimFrost?
 
-> [!IMPORTANT]
-> Start with [`USAGE.md`](./USAGE.md) for build, auth, CLI, session, and parity-harness workflows. Make `rimfrost doctor` your first health check after building, use [`rust/README.md`](./rust/README.md) for crate-level details, read [`PARITY.md`](./PARITY.md) for the current Rust-port checkpoint, and see [`docs/container.md`](./docs/container.md) for the container-first workflow.
->
-> **ACP / Zed status:** `rimfrost` does not ship an ACP/Zed daemon entrypoint yet. Run `rimfrost acp` (or `rimfrost --acp`) for the current status instead of guessing from source layout; `rimfrost acp serve` is currently a discoverability alias only, and real ACP support remains tracked separately in `ROADMAP.md`.
+RimFrost is a high-performance Rust CLI agent harness that learns from every session. It writes facts, skills, and working memory to disk — and loads them back on every future run. The agent accumulates project-specific knowledge over time instead of starting from zero.
 
-## Current repository shape
+Built as a Rust rewrite with 9 crates, ~20K lines, and a full tool system for autonomous coding tasks.
 
-- **`rust/`** — canonical Rust workspace and the `rimfrost` CLI binary
-- **`USAGE.md`** — task-oriented usage guide for the current product surface
-- **`PARITY.md`** — Rust-port parity status and migration notes
-- **`ROADMAP.md`** — active roadmap and cleanup backlog
-- **`PHILOSOPHY.md`** — project intent and system-design framing
-- **`src/` + `tests/`** — companion Python/reference workspace and audit helpers; not the primary runtime surface
+---
 
-## Quick start
-
-> [!NOTE]
-> [!WARNING]
-> **`cargo install rimfrost` installs the wrong thing.** The `rimfrost` crate on crates.io is a deprecated stub that places `rimfrost-deprecated.exe` — not `rimfrost`. Running it only prints `"rimfrost has been renamed to agent-code"`. **Do not use `cargo install rimfrost`.** Either build from source (this repo) or install the upstream binary:
-> ```bash
-> cargo install agent-code   # upstream binary — installs 'agent.exe' (Windows) / 'agent' (Unix), NOT 'agent-code'
-> ```
-> This repo (`Fei2-Labs/rimfrost`) is **build-from-source only** — follow the steps below.
+## ⚡ Quick Start
 
 ```bash
-# 1. Clone and build
 git clone https://github.com/Fei2-Labs/rimfrost
 cd rimfrost/rust
 cargo build --workspace
 
-# 2. Set your API key (Anthropic API key — not a Claude subscription)
 export ANTHROPIC_API_KEY="sk-ant-..."
 
-# 3. Verify everything is wired correctly
-./target/debug/rimfrost doctor
-
-# 4. Run a prompt
-./target/debug/rimfrost prompt "say hello"
+./target/debug/rimfrost doctor    # verify setup
+./target/debug/rimfrost           # start REPL
+./target/debug/rimfrost prompt "summarize this repo"
 ```
 
-> [!NOTE]
-> **Windows (PowerShell):** the binary is `rimfrost.exe`, not `rimfrost`. Use `.\target\debug\rimfrost.exe` or run `cargo run -- prompt "say hello"` to skip the path lookup.
+---
 
-### Windows setup
+## 🧠 Core Capabilities
 
-**PowerShell is a supported Windows path.** Use whichever shell works for you. The common onboarding issues on Windows are:
+### Self-Evolving Memory
 
-1. **Install Rust first** — download from <https://rustup.rs/> and run the installer. Close and reopen your terminal when it finishes.
-2. **Verify Rust is on PATH:**
-   ```powershell
-   cargo --version
-   ```
-   If this fails, reopen your terminal or run the PATH setup from the Rust installer output, then retry.
-3. **Clone and build** (works in PowerShell, Git Bash, or WSL):
-   ```powershell
-   git clone https://github.com/Fei2-Labs/rimfrost
-   cd rimfrost/rust
-   cargo build --workspace
-   ```
-4. **Run** (PowerShell — note `.exe` and backslash):
-   ```powershell
-   $env:ANTHROPIC_API_KEY = "sk-ant-..."
-   .\target\debug\rimfrost.exe prompt "say hello"
-   ```
+The agent doesn't just answer — it **learns**.
 
-**Git Bash / WSL** are optional alternatives, not requirements. If you prefer bash-style paths (`/c/Users/you/...` instead of `C:\Users\you\...`), Git Bash (ships with Git for Windows) works well. In Git Bash, the `MINGW64` prompt is expected and normal — not a broken install.
+| Layer | What | Scope |
+|---|---|---|
+| **Working Checkpoint** | Short-term scratchpad injected every turn — prevents context drift in long tasks | Within a session |
+| **Long-Term Memory** | Facts, preferences, environment details the agent writes to disk | All future sessions |
+| **Project Memory** | Project-specific patterns and conventions | Per-project, all sessions |
+| **Skills** | SOPs the agent writes after learning how to do something | Cross-project |
 
-> [!NOTE]
-> **Auth:** claw requires an **API key** (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, etc.) — Claude subscription login is not a supported auth path.
+```
+~/.rimfrost/memory/
+├── global.md        # User preferences, environment facts
+├── insights.md      # Structured summary
+└── skills/          # Reusable procedures
+    ├── docker-setup.md
+    └── rust-ci-fix.md
 
-Run the workspace test suite:
+.rimfrost/memory/
+├── project.md       # Project-specific knowledge
+└── skills/
+    └── deploy-staging.md
+```
+
+The agent decides when to remember. You can also tell it: *"remember that I deploy to staging with `make deploy-stg`"*
+
+### Failure Escalation
+
+Built-in retry intelligence — never repeats the same action without new information:
+
+1. **1st failure** → read the error, understand root cause
+2. **2nd failure** → probe the environment (check file state, deps, versions)
+3. **3rd failure** → switch to a fundamentally different approach or ask the user
+
+### Full Tool System
+
+| Tool | What it does |
+|---|---|
+| `bash` | Execute shell commands with permission controls |
+| `read_file` | Read files with offset/limit |
+| `write_file` | Create or overwrite files |
+| `edit_file` | Surgical text replacement |
+| `glob_search` | Find files by pattern |
+| `grep_search` | Regex search across files |
+| `WebSearch` | Search the web with cited results |
+| `WebFetch` | Fetch and extract content from URLs |
+| `WorkingCheckpoint` | Update intra-session working memory |
+| `MemoryWrite` | Save learnings to long-term memory |
+| `MemoryRead` | Search long-term memory |
+| `Agent` | Spawn sub-agent tasks |
+| `TodoWrite` | Structured task tracking |
+| `NotebookEdit` | Edit Jupyter notebooks |
+| `Skill` | Load local skill definitions |
+| `ToolSearch` | Discover specialized tools |
+
+### Multi-Provider Support
+
+| Provider | Auth | Models |
+|---|---|---|
+| Anthropic | `ANTHROPIC_API_KEY` | Claude Opus, Sonnet, Haiku |
+| xAI | `XAI_API_KEY` | Grok 3, Grok 3 Mini |
+| OpenAI-compatible | `OPENAI_API_KEY` + `OPENAI_BASE_URL` | GPT-4, Llama, any |
+| DashScope | `DASHSCOPE_API_KEY` | Qwen series |
+| Ollama | `OPENAI_BASE_URL=http://localhost:11434/v1` | Any local model |
+| OpenRouter | `OPENAI_API_KEY` + `OPENAI_BASE_URL` | 200+ models |
+
+### Session Persistence
+
+Every REPL session is auto-saved to `.rimfrost/sessions/`. Resume any session:
 
 ```bash
-cd rust
-cargo test --workspace
+rimfrost --resume latest
+rimfrost --resume latest /status /diff
 ```
 
-## Documentation map
+### Permission System
 
-- [`USAGE.md`](./USAGE.md) — quick commands, auth, sessions, config, parity harness
-- [`rust/README.md`](./rust/README.md) — crate map, CLI surface, features, workspace layout
-- [`PARITY.md`](./PARITY.md) — parity status for the Rust port
-- [`rust/MOCK_PARITY_HARNESS.md`](./rust/MOCK_PARITY_HARNESS.md) — deterministic mock-service harness details
-- [`ROADMAP.md`](./ROADMAP.md) — active roadmap and open cleanup work
-- [`PHILOSOPHY.md`](./PHILOSOPHY.md) — why the project exists and how it is operated
+Three modes controlling what the agent can do:
 
-## Ecosystem
+- `read-only` — can only read files and search
+- `workspace-write` — can modify files in the workspace
+- `danger-full-access` — full shell access (default)
 
-RimFrost is built in the open alongside the broader Fei2-Labs toolchain:
+### MCP Server Support
 
-- [clawhip](https://github.com/Yeachan-Heo/clawhip)
-- [oh-my-openagent](https://github.com/code-yeongyu/oh-my-openagent)
-- [oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode)
-- [oh-my-codex](https://github.com/Yeachan-Heo/oh-my-codex)
-- [Fei2-Labs Discord](https://discord.gg/5TUQKqFWd)
+Connect external tools via the Model Context Protocol:
 
-## Ownership / affiliation disclaimer
+```bash
+rimfrost mcp                    # list connected servers
+rimfrost mcp show my-server     # inspect a server
+```
 
-- This repository does **not** claim ownership of the original Claude Code source material.
-- This repository is **not affiliated with, endorsed by, or maintained by Anthropic**.
+---
+
+## 🖥 CLI Reference
+
+### Top-Level Commands
+
+```bash
+rimfrost                                    # Interactive REPL
+rimfrost prompt "do something"              # One-shot task
+rimfrost "explain this code"                # Shorthand one-shot
+rimfrost doctor                             # Health check
+rimfrost status                             # Workspace status
+rimfrost sandbox                            # Container detection
+rimfrost agents                             # List agent definitions
+rimfrost mcp                                # MCP server status
+rimfrost skills                             # Skill inventory
+rimfrost system-prompt                      # Print assembled system prompt
+rimfrost init                               # Initialize workspace
+```
+
+### Options
+
+```bash
+rimfrost --model sonnet                     # Pick model (opus/sonnet/haiku)
+rimfrost --output-format json prompt "..."  # JSON output for scripting
+rimfrost --permission-mode read-only        # Restrict permissions
+rimfrost --allowedTools read,glob "..."     # Whitelist specific tools
+rimfrost --resume latest                    # Resume last session
+rimfrost --compact "summarize Cargo.toml"   # Compact output for piping
+```
+
+### REPL Slash Commands
+
+| Command | Action |
+|---|---|
+| `/help` | Show all commands |
+| `/status` | Session state, model, cost |
+| `/model` | Current model info |
+| `/cost` | Token usage and cost estimate |
+| `/config` | View/edit settings |
+| `/memory` | Inspect long-term memory |
+| `/session` | Session management |
+| `/compact` | Toggle compact mode |
+| `/diff` | Show git diff |
+| `/commit` | Commit changes |
+| `/export` | Export conversation |
+| `/doctor` | Health check |
+| `/skills` | List/install skills |
+| `/agents` | List agent definitions |
+| `/mcp` | MCP server status |
+| `/hooks` | Lifecycle hooks |
+
+---
+
+## 🏗 Architecture
+
+```
+rust/crates/
+├── api/                 # Provider clients, streaming, auth
+├── commands/            # Slash command registry
+├── runtime/             # Session, config, permissions, prompts, memory
+├── tools/               # Built-in tools (bash, files, web, memory, agents)
+├── plugins/             # Plugin system
+├── rusty-claude-cli/    # Main CLI binary
+├── telemetry/           # Usage tracking
+├── mock-anthropic-service/  # Deterministic mock for testing
+└── compat-harness/      # Upstream manifest extraction
+```
+
+- **~20K lines** of Rust across **9 crates**
+- Binary: `rimfrost`
+- Default model: `claude-opus-4-6`
+
+---
+
+## 📖 Documentation
+
+- [USAGE.md](./USAGE.md) — Full usage guide with examples
+- [PHILOSOPHY.md](./PHILOSOPHY.md) — Why this project exists
+- [PARITY.md](./PARITY.md) — Rust port status
+- [ROADMAP.md](./ROADMAP.md) — Active roadmap
+- [docs/container.md](./docs/container.md) — Container workflows
+- [docs/MODEL_COMPATIBILITY.md](./docs/MODEL_COMPATIBILITY.md) — Model-specific handling
+
+---
+
+## 📄 License
+
+MIT. See repository root.
+
+This project is **not affiliated with or endorsed by Anthropic**.
